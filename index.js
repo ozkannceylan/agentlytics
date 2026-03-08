@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
+const { PLATFORM, windsurfServerBinary } = require('./editors/platform');
 
 const HOME = os.homedir();
 const PORT = process.env.PORT || 4637;
@@ -175,19 +176,43 @@ if (noCache) {
 }
 
 // ── Warn about installed-but-not-running Windsurf variants ─
-const WINDSURF_VARIANTS = [
-  { name: 'Windsurf', app: '/Applications/Windsurf.app', dataDir: path.join(HOME, '.codeium', 'windsurf'), ide: 'windsurf' },
-  { name: 'Windsurf Next', app: '/Applications/Windsurf Next.app', dataDir: path.join(HOME, '.codeium', 'windsurf-next'), ide: 'windsurf-next' },
-  { name: 'Antigravity', app: '/Applications/Antigravity.app', dataDir: path.join(HOME, '.codeium', 'antigravity'), ide: 'antigravity' },
-];
+//
+// "Installed" is detected by checking whether the editor's data directory
+// exists.  On macOS we additionally check /Applications; on other platforms
+// we rely solely on the data-directory heuristic (robust and cross-platform).
+//
+// "Running" is detected by scanning the process list for the language-server
+// binary.  On Windows this check is skipped (graceful degradation) because
+// the process-detection strategy differs and is not yet implemented.
+
+function getWindsurfVariants() {
+  const base = [
+    { name: 'Windsurf',      dataDir: path.join(HOME, '.codeium', 'windsurf'),      ide: 'windsurf' },
+    { name: 'Windsurf Next', dataDir: path.join(HOME, '.codeium', 'windsurf-next'), ide: 'windsurf-next' },
+    { name: 'Antigravity',   dataDir: path.join(HOME, '.codeium', 'antigravity'),   ide: 'antigravity' },
+  ];
+
+  if (PLATFORM === 'darwin') {
+    // Add macOS app-bundle paths for a richer installed check.
+    base[0].app = '/Applications/Windsurf.app';
+    base[1].app = '/Applications/Windsurf Next.app';
+    base[2].app = '/Applications/Antigravity.app';
+  }
+
+  return base;
+}
 
 (() => {
-  // Check which language servers are running
+  // On Windows, process detection is not yet implemented — skip the warning.
+  if (PLATFORM === 'win32') return;
+
+  const binaryName = windsurfServerBinary();
+
   let runningIdes = [];
   try {
     const ps = execSync('ps aux', { encoding: 'utf-8', maxBuffer: 1024 * 1024 });
     for (const line of ps.split('\n')) {
-      if (!line.includes('language_server_macos') || !line.includes('--csrf_token')) continue;
+      if (!line.includes(binaryName) || !line.includes('--csrf_token')) continue;
       const ideMatch = line.match(/--ide_name\s+(\S+)/);
       const appDirMatch = line.match(/--app_data_dir\s+(\S+)/);
       if (ideMatch) runningIdes.push(ideMatch[1]);
@@ -195,8 +220,9 @@ const WINDSURF_VARIANTS = [
     }
   } catch {}
 
+  const WINDSURF_VARIANTS = getWindsurfVariants();
   const installedNotRunning = WINDSURF_VARIANTS.filter(v => {
-    const installed = fs.existsSync(v.app) || fs.existsSync(v.dataDir);
+    const installed = (v.app && fs.existsSync(v.app)) || fs.existsSync(v.dataDir);
     const running = runningIdes.some(r => r === v.ide || r.includes(v.ide));
     return installed && !running;
   });

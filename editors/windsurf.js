@@ -3,6 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const { execSync } = require('child_process');
 const http = require('http');
+const { PLATFORM, windsurfServerBinary } = require('./platform');
 
 const HOME = os.homedir();
 
@@ -19,13 +20,35 @@ const VARIANTS = [
 
 let _lsCache = null;
 
+/**
+ * Find all running Windsurf language-server processes and return their
+ * { ide, appDataDir, port, csrf, pid } descriptors.
+ *
+ * Strategy by platform:
+ *   macOS  — ps aux  + lsof
+ *   Linux  — ps aux  + ss (with lsof as fallback)
+ *   Windows — not yet supported; returns [] gracefully so other adapters
+ *             still work.  Windsurf on Windows exposes a different binary
+ *             name and port-discovery mechanism that requires further research.
+ */
 function findLanguageServers() {
   if (_lsCache) return _lsCache;
   _lsCache = [];
+
+  if (PLATFORM === 'win32') {
+    // Windows support for live Windsurf RPC is not yet implemented.
+    // The process name and port-discovery mechanism differ; return empty
+    // so the adapter degrades gracefully.
+    return _lsCache;
+  }
+
+  // macOS and Linux: ps aux is available on both.
+  const binaryName = windsurfServerBinary(); // language_server_macos | language_server_linux
+
   try {
     const ps = execSync('ps aux', { encoding: 'utf-8', maxBuffer: 1024 * 1024 });
     for (const line of ps.split('\n')) {
-      if (!line.includes('language_server_macos') || !line.includes('--csrf_token')) continue;
+      if (!line.includes(binaryName) || !line.includes('--csrf_token')) continue;
       const csrfMatch = line.match(/--csrf_token\s+(\S+)/);
       const ideMatch = line.match(/--ide_name\s+(\S+)/);
       const appDirMatch = line.match(/--app_data_dir\s+(\S+)/);
@@ -33,21 +56,38 @@ function findLanguageServers() {
       const csrf = csrfMatch[1];
       const ide = ideMatch ? ideMatch[1] : 'windsurf';
       const appDataDir = appDirMatch ? appDirMatch[1] : null;
-      // Find port by checking listening sockets for this process
       const pidMatch = line.match(/^\S+\s+(\d+)/);
       if (!pidMatch) continue;
       const pid = pidMatch[1];
+
+      // Find listening port for this PID.
+      // Try lsof first (available on macOS and most Linux distros), then ss.
+      let port = null;
       try {
         const lsof = execSync(`lsof -i TCP -P -n -a -p ${pid} 2>/dev/null`, { encoding: 'utf-8' });
         for (const l of lsof.split('\n')) {
-          const portMatch = l.match(/TCP\s+127\.0\.0\.1:(\d+)\s+\(LISTEN\)/);
-          if (portMatch) {
-            _lsCache.push({ ide, appDataDir, port: parseInt(portMatch[1]), csrf, pid });
-          }
+          const m = l.match(/TCP\s+127\.0\.0\.1:(\d+)\s+\(LISTEN\)/);
+          if (m) { port = parseInt(m[1]); break; }
         }
-      } catch { /* skip */ }
+      } catch { /* lsof not available */ }
+
+      if (port === null) {
+        // Fallback: ss (iproute2, standard on Linux)
+        try {
+          const ss = execSync(`ss -tlnp 2>/dev/null | grep pid=${pid}`, { encoding: 'utf-8', shell: true });
+          for (const l of ss.split('\n')) {
+            const m = l.match(/:(\d+)\s/);
+            if (m) { port = parseInt(m[1]); break; }
+          }
+        } catch { /* ss not available */ }
+      }
+
+      if (port !== null) {
+        _lsCache.push({ ide, appDataDir, port, csrf, pid });
+      }
     }
   } catch { /* ps failed */ }
+
   return _lsCache;
 }
 

@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { decodeProjectPath } = require('./platform');
 
 const CURSOR_PROJECTS_DIR = path.join(os.homedir(), '.cursor', 'projects');
 
@@ -13,13 +14,16 @@ const name = 'cursor-agent';
 /**
  * Decode project directory name back to folder path.
  * e.g. "Users-fka-Code-Wapple" → "/Users/fka/Code/Wapple"
+ *
+ * Uses the centralized decodeProjectPath() for the initial decode, then
+ * applies a filesystem-existence heuristic to resolve ambiguous "-" segments
+ * (a "-" in the dir name might be either a path separator or a literal hyphen
+ * in a directory name).
  */
 function decodeProjectDir(dirName) {
-  // The encoding replaces "/" with "-". We reconstruct by prepending "/"
-  // and replacing "-" back to "/". Handle ambiguity by checking if path exists.
-  const candidate = '/' + dirName.replace(/-/g, '/');
+  const candidate = decodeProjectPath(dirName);
   if (fs.existsSync(candidate)) return candidate;
-  // Fallback: try common patterns (the first segment is usually "Users")
+  // Heuristic: try increasingly long prefixes to find an existing path.
   const parts = dirName.split('-');
   for (let i = 2; i < parts.length; i++) {
     const prefix = '/' + parts.slice(0, i).join('/');

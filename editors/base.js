@@ -2,25 +2,20 @@ const path = require('path');
 const os = require('os');
 const chalk = require('chalk');
 
-const HOME = os.homedir();
+const { HOME, getConfigDir, getDataDir, decodeProjectPath } = require('./platform');
 
 // --- Platform utilities ---
 
 /**
  * Get platform-specific app data directory path for VS Code-like editors.
- * - macOS: ~/Library/Application Support/{appName}/User/...
- * - Windows: ~/AppData/Roaming/{appName}/User/...
- * - Linux: ~/.config/{appName}/User/...
+ * Alias for getConfigDir() from platform.js — kept for backward compatibility.
+ *
+ * - macOS:   ~/Library/Application Support/{appName}
+ * - Windows: %APPDATA%/{appName}
+ * - Linux:   $XDG_CONFIG_HOME/{appName}  or  ~/.config/{appName}
  */
 function getAppDataPath(appName) {
-  switch (process.platform) {
-    case 'darwin':
-      return path.join(HOME, 'Library', 'Application Support', appName);
-    case 'win32':
-      return path.join(HOME, 'AppData', 'Roaming', appName);
-    default: // linux, etc.
-      return path.join(HOME, '.config', appName);
-  }
+  return getConfigDir(appName);
 }
 
 // --- Formatting utilities shared across all editor adapters ---
@@ -124,9 +119,10 @@ function truncate(str, max = 120) {
 function shortenPath(p, maxLen = 40) {
   if (!p) return '';
   if (p.length <= maxLen) return p;
-  const parts = p.split('/');
+  const sep = p.includes('/') ? '/' : path.sep;
+  const parts = p.split(sep);
   if (parts.length <= 3) return p;
-  return '…/' + parts.slice(-2).join('/');
+  return '…' + sep + parts.slice(-2).join(sep);
 }
 
 /**
@@ -141,6 +137,9 @@ function shortenPath(p, maxLen = 40) {
 
 module.exports = {
   getAppDataPath,
+  getConfigDir,   // preferred name going forward
+  getDataDir,
+  decodeProjectPath,
   formatArgs,
   formatToolCall,
   formatToolResult,

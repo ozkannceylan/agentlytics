@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { decodeProjectPath } = require('./platform');
 
 const COMMANDCODE_DIR = path.join(os.homedir(), '.commandcode');
 const PROJECTS_DIR = path.join(COMMANDCODE_DIR, 'projects');
@@ -23,7 +24,7 @@ function getChats() {
     try { if (!fs.statSync(dir).isDirectory()) continue; } catch { continue; }
 
     // Decode folder path from dir name (e.g. users-fka-code-foo -> /users/fka/code/foo)
-    const decodedFolder = '/' + projDir.replace(/-/g, '/');
+    const decodedFolder = decodeProjectPath(projDir);
 
     let files;
     try { files = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl') && !f.includes('.checkpoints.')); } catch { continue; }

@@ -30,7 +30,7 @@ Agentlytics reads local chat history from every major AI coding assistant and pr
 npx agentlytics
 ```
 
-Opens at **http://localhost:4637**. Requires Node.js ≥ 20.19 or ≥ 22.12, macOS.
+Opens at **http://localhost:4637**. Requires Node.js ≥ 20.19 or ≥ 22.12 on **macOS, Linux, or Windows**.
 
 To only build the cache database without starting the server:
 
@@ -52,26 +52,44 @@ For local development, run `npm run dev` from the repo root. That starts both th
 
 ## Supported Editors
 
-| Editor | ID | Msgs | Tools | Models | Tokens |
-|--------|----|:----:|:-----:|:------:|:------:|
-| **Cursor** | `cursor` | ✅ | ✅ | ⚠️ | ⚠️ |
-| **Windsurf** | `windsurf` | ✅ | ✅ | ✅ | ✅ |
-| **Windsurf Next** | `windsurf-next` | ✅ | ✅ | ✅ | ✅ |
-| **Antigravity** | `antigravity` | ✅ | ✅ | ✅ | ✅ |
-| **Claude Code** | `claude-code` | ✅ | ✅ | ✅ | ✅ |
-| **VS Code** | `vscode` | ✅ | ✅ | ✅ | ✅ |
-| **VS Code Insiders** | `vscode-insiders` | ✅ | ✅ | ✅ | ✅ |
-| **Zed** | `zed` | ✅ | ✅ | ✅ | ❌ |
-| **OpenCode** | `opencode` | ✅ | ✅ | ✅ | ✅ |
-| **Codex** | `codex` | ✅ | ✅ | ✅ | ✅ |
-| **Gemini CLI** | `gemini-cli` | ✅ | ✅ | ✅ | ✅ |
-| **Copilot CLI** | `copilot-cli` | ✅ | ✅ | ✅ | ✅ |
-| **Cursor Agent** | `cursor-agent` | ✅ | ❌ | ❌ | ❌ |
-| **Command Code** | `commandcode` | ✅ | ✅ | ❌ | ❌ |
+| Editor | ID | Msgs | Tools | Models | Tokens | macOS | Linux | Windows |
+|--------|----|:----:|:-----:|:------:|:------:|:-----:|:-----:|:-------:|
+| **Claude Code** | `claude-code` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Cursor** | `cursor` | ✅ | ✅ | ⚠️ | ⚠️ | ✅ | ✅ | ✅ |
+| **VS Code** | `vscode` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **VS Code Insiders** | `vscode-insiders` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Zed** | `zed` | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ |
+| **OpenCode** | `opencode` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Codex** | `codex` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Gemini CLI** | `gemini-cli` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ |
+| **Copilot CLI** | `copilot-cli` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ |
+| **Cursor Agent** | `cursor-agent` | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Command Code** | `commandcode` | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Windsurf** | `windsurf` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ |
+| **Windsurf Next** | `windsurf-next` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ |
+| **Antigravity** | `antigravity` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ |
 
-> Windsurf, Windsurf Next, and Antigravity must be running during scan.
+**⚠️** = partial support or untested on this platform.
 
-Codex sessions are read from `${CODEX_HOME:-~/.codex}/sessions/**/*.jsonl`. Reasoning summaries may appear in transcripts when Codex records them in clear text, but encrypted reasoning content is not readable. Codex Desktop and CLI sessions are aggregated into one `codex` editor in analytics.
+> Windsurf, Windsurf Next, and Antigravity must be running during scan (they are queried live via their language server).
+> Windows live-query support for Windsurf is not yet implemented; the adapter returns no sessions on Windows.
+
+### Platform notes
+
+**Claude Code** — Sessions are read from `~/.claude/projects/` on all platforms.
+Override the directory with the `CLAUDE_CONFIG_DIR` environment variable.
+
+**Codex** — Sessions are read from `${CODEX_HOME:-~/.codex}/sessions/**/*.jsonl`.
+Reasoning summaries may appear in transcripts when Codex records them in clear text, but encrypted reasoning content is not readable. Codex Desktop and CLI sessions are aggregated into one `codex` editor in analytics.
+
+**OpenCode** — Database is read from the platform data directory:
+- macOS: `~/Library/Application Support/opencode/opencode.db`
+- Linux: `$XDG_DATA_HOME/opencode/opencode.db` (default: `~/.local/share/opencode/opencode.db`)
+- Windows: `%LOCALAPPDATA%\opencode\opencode.db`
+
+**Gemini CLI / Copilot CLI** — These tools store data in `~/.gemini` and `~/.copilot` respectively, which is valid on macOS and Linux.  Windows paths for these tools have not yet been verified.
+
+**VS Code / Cursor / Zed** — Config directories follow each platform's standard convention automatically (XDG on Linux, `%APPDATA%` on Windows).
 
 ## Relay
 
@@ -177,7 +195,7 @@ All endpoints accept optional `editor` filter. See **[API.md](API.md)** for full
 
 - [ ] **Offline Windsurf/Antigravity support** — Read cascade data from local file structure instead of requiring the app to be running (see below)
 - [ ] **LLM-powered insights** — Use an LLM to analyze session patterns, generate summaries, detect coding habits, and surface actionable recommendations
-- [ ] **Linux & Windows support** — Adapt editor paths for non-macOS platforms
+- [ ] **Windsurf Windows support** — Implement live language-server process detection on Windows (currently skipped; the rest of the adapter is functional)
 - [ ] **Export & reports** — PDF/CSV export of analytics and session data
 - [ ] **Cost tracking** — Estimate API costs per editor/model based on token usage
 

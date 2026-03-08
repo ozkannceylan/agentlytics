@@ -2,8 +2,13 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { execSync } = require('child_process');
+const { getDataDir } = require('./platform');
 
-const DB_PATH = path.join(os.homedir(), '.local', 'share', 'opencode', 'opencode.db');
+// opencode stores its SQLite DB in the platform data directory:
+//   macOS:   ~/Library/Application Support/opencode/opencode.db
+//   Windows: %LOCALAPPDATA%\opencode\opencode.db
+//   Linux:   $XDG_DATA_HOME/opencode/opencode.db  or  ~/.local/share/opencode/opencode.db
+const DB_PATH = path.join(getDataDir('opencode'), 'opencode.db');
 
 // ============================================================
 // Query SQLite via CLI

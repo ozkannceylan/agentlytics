@@ -1,8 +1,35 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { decodeProjectPath, PLATFORM } = require('./platform');
 
-const CLAUDE_DIR = path.join(os.homedir(), '.claude');
+/**
+ * Resolve Claude Code's config/session directory.
+ *
+ * Priority:
+ *  1. CLAUDE_CONFIG_DIR env var  (explicit override, all platforms)
+ *  2. ~/.claude                  (macOS and Linux default — also valid on Windows)
+ *  3. On Windows: %APPDATA%\Claude  (alternative Windows location)
+ *
+ * Returns the first candidate directory that exists, or the primary
+ * default so we can surface a clear "not found" when sessions are absent.
+ */
+function resolveClaudeDir() {
+  if (process.env.CLAUDE_CONFIG_DIR) {
+    return path.resolve(process.env.CLAUDE_CONFIG_DIR);
+  }
+
+  const candidates = [path.join(os.homedir(), '.claude')];
+
+  if (PLATFORM === 'win32') {
+    const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+    candidates.push(path.join(appData, 'Claude'));
+  }
+
+  return candidates.find(d => fs.existsSync(d)) || candidates[0];
+}
+
+const CLAUDE_DIR = resolveClaudeDir();
 const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects');
 
 // ============================================================
@@ -20,7 +47,7 @@ function getChats() {
     if (!fs.statSync(dir).isDirectory()) continue;
 
     // Decode folder path from dir name (e.g. -Users-fka-Code-foo -> /Users/fka/Code/foo)
-    const decodedFolder = projDir.replace(/-/g, '/');
+    const decodedFolder = decodeProjectPath(projDir);
 
     // Read sessions-index.json for indexed sessions
     const indexPath = path.join(dir, 'sessions-index.json');
